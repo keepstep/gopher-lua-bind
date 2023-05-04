@@ -24,6 +24,8 @@ func main() {
 			{"TeslaTest", tesla.TeslaTest},
 			{"TeslaGetAAA", tesla.TeslaGetAAA},
 			{"TeslaCallBack", tesla.TeslaCallBack},
+			{"TeslaCallInterface", tesla.TeslaCallInterface},
+			{"TeslaGetCmp", tesla.TeslaGetCmp},
 		}},
 	}
 	err := gen.Gen(objs, []string{}, "./")

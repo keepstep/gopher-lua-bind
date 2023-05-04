@@ -58,6 +58,12 @@ local function get()
 
     t:Models({e=10,x=100,y=100})
     dumptag("tesla.Models 2",t:Models())
+
+    rc = tesla.TeslaGetCmp("BeyondCompare")
+    printInfo("tesla Cmp BeyondCompare  %s",rc:Equal("BeyondCompare"))
+    printInfo("tesla Cmp Diff  %s",rc:Equal("Diff"))
+
+
 end
 get()
 return "AAA",1000
