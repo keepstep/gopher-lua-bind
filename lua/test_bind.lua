@@ -46,7 +46,18 @@ local function get()
     
     r1 = tesla.TeslaGetAAA("55")
     printInfo("tesla.TeslaGetAAA %s %s %d",r1,r1:Name(),r1:Age())
-    
+
+    local cb = function (name)
+        printInfo("tesla.RunCb %s",name)
+        return "callback_lua"
+    end
+    t:RunCb(cb)
+    t:Run("run01",100)
+    t:Run("run02",200)
+    t:Run("run03",300)
+
+    t:Models({e=10,x=100,y=100})
+    dumptag("tesla.Models 2",t:Models())
 end
 get()
 return "AAA",1000

@@ -82,6 +82,7 @@ func Lua_{{ $Name }}_{{- $fun.Name -}}(L *lua.LState) int {
 			{{ template "p_to_slice" $t }}
 		{{ end }}
 		{{ $fun.InDefine $i -}}
+
 	{{ end }}
 	{{ $fun.OutRetStr }} {{$fun.PkgName}}.{{- $fun.Name -}}( {{- $fun.InParam -}} )
 
@@ -169,6 +170,9 @@ func Lua_{{ $Name }}_GetSet_{{ $fn }}(L *lua.LState) int {
 {{ range $i,$ff := .FieldsBindMap }} 
 {{ template "field_func_map" $ff}}
 {{ end }}
+{{ range $i,$ff := .FieldsBindFunc }} 
+{{ template "field_func_func" $ff}}
+{{ end }}
 
 
 
@@ -206,6 +210,11 @@ func Loader{{ .Name }}(L *lua.LState) int {
 		//field map
 		{{ range $i,$ff := .FieldsBindMap }} 
 			"{{- index $ff 1 -}}" :  Lua_{{ $Name }}_GetSet_{{ index $ff 1}},
+		{{ end }}
+
+		//field callback
+		{{ range $i,$ff := .FieldsBindFunc }} 
+			"{{- index $ff 1 -}}" :  Lua_{{ $Name }}_Set_{{ index $ff 1}},
 		{{ end }}
 	}))
 
@@ -288,6 +297,26 @@ func Loader{{ .Name }}(L *lua.LState) int {
 			m = append(m,vv)
 		})
 		return m
+	}
+{{ end }}
+
+
+{{ define "p_to_func" }}
+{{ $idx := .Index }}
+{{ $in := .In }}
+{{ $out := .Out }}
+	p{{ $idx }} :=  func (fp1 string) string {
+		p := lua.P{
+			Fn:   p2f,
+			NRet: {{ len $out }},
+		}
+		lp1 := lua.LString(fp1)
+		err := L.CallByParam(p, lp1)
+		if err != nil {
+			L.Error(lua.LString(err.Error()), 1)
+		}
+		ret := int(L.CheckNumber(1))
+		return ret
 	}
 {{ end }}
 
@@ -499,6 +528,27 @@ func Lua_{{ $Name }}_GetSet_{{ $fn }}(L *lua.LState) int {
 	}else{
 		L.Push(r1)
 	}
+    return 1
+}	
+{{ end }}
+
+
+{{ define "field_func_func" }}
+{{ $Name := index . 0 }}
+{{ $fn := index . 1 }}
+{{ $type := (index . 2)}}
+func Lua_{{ $Name }}_Set_{{ $fn }}(L *lua.LState) int {
+	ins := Lua_{{ $Name }}_Check(L, 1)
+	if ins == nil {
+		return 0
+	}
+    if L.GetTop() == 2 {
+		p1f := L.CheckFunction(2)
+		p1 := {{ $type.FuncDefine "p1f" }}
+        ins.{{ $fn }} = p1
+        return 0
+    }
+	L.Push(lua.LNil)
     return 1
 }	
 {{ end }}

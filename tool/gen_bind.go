@@ -23,6 +23,7 @@ func main() {
 			{"TeslaCompare", tesla.TeslaCompare},
 			{"TeslaTest", tesla.TeslaTest},
 			{"TeslaGetAAA", tesla.TeslaGetAAA},
+			{"TeslaCallBack", tesla.TeslaCallBack},
 		}},
 	}
 	err := gen.Gen(objs, []string{}, "./")

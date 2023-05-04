@@ -3,9 +3,9 @@ package gen
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
+	"text/template"
 
 	tmp "github.com/keepstep/gopher-lua-bind/gen/template"
 )

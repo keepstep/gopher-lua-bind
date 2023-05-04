@@ -3,6 +3,7 @@ package tesla
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/keepstep/gopher-lua-bind/tesla/aaaa"
 	"github.com/keepstep/gopher-lua-bind/tesla/modele"
@@ -18,9 +19,20 @@ type Tesla struct {
 	Err    error
 	Cars   []string
 	Models map[string]int
+	RunCb  func(name string) string
+	GoCb   func(name string, age float32) (string, int, bool)
 }
 
-func (*Tesla) Run(mode string, speed int) (status int, err error) {
+func (t *Tesla) Run(mode string, speed int) (status int, err error) {
+	fmt.Printf("tesla.Run %s %d\n", mode, speed)
+	if t.RunCb != nil {
+		r := t.RunCb(mode)
+		fmt.Printf("tesla.RunCb %s\n", r)
+		// r = t.RunCb(mode + "02")
+		// fmt.Printf("tesla.RunCb 02 %s\n", r)
+		// r = t.RunCb(mode + "03")
+		// fmt.Printf("tesla.RunCb 03 %s\n", r)
+	}
 	return 1, errors.New("error")
 }
 func (*Tesla) RunX(x *modelx.ModelX) (status int, err error) {
@@ -44,4 +56,9 @@ func TeslaTest(a int, b float32, m map[string]int) (r int, f float64, ss []strin
 
 func TeslaGetAAA(name string) *aaaa.AAA {
 	return &aaaa.AAA{Name: "TeslaAAA", Age: 200}
+}
+
+func TeslaCallBack(name string, ff func(name string) string) string {
+	r := ff(strings.Repeat(name, 2))
+	return r
 }

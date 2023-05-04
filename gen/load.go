@@ -27,7 +27,11 @@ type BType struct {
 	ElemKeyType *BType `json:"elem_key_type"`
 
 	IsInterface bool `json:"is_interface"`
-	IsFunc      bool `json:"is_func"`
+
+	IsFunc      bool     `json:"is_func"`
+	IsFuncValid bool     `json:"is_func_valid"`
+	In          []*BType `json:"in"`
+	Out         []*BType `json:"out"`
 
 	RefType reflect.Type `json:"reflect_type"`
 	//for fields,methods in out, [1...]
@@ -48,6 +52,90 @@ type BMethod struct {
 	IsFunc  bool   `json:"is_func"`
 	PkgPath string `json:"pkg_path"`
 	PkgName string `json:"pkg_name"`
+}
+
+func (t *BType) FuncDefine(pfName string) string {
+	pin := []string{}
+	pdef := []string{}
+	cin := []string{"lp"}
+	for i, o := range t.In {
+		name := o.Name
+		if o.IsStruct {
+			name = fmt.Sprintf("* %s.%s", o.PkgName, o.Name)
+		}
+		pin = append(pin, fmt.Sprintf("ip%d %s", i+1, name))
+
+		s := ""
+		if o.IsBool {
+			s = fmt.Sprintf("p%d := lua.LBool(ip%d)", i+1, i+1)
+		} else if o.IsNumber {
+			s = fmt.Sprintf("p%d := lua.LNumber(ip%d)", i+1, i+1)
+		} else if o.IsString {
+			s = fmt.Sprintf("p%d := lua.LString(ip%d)", i+1, i+1)
+		} else if o.IsStruct {
+			s = fmt.Sprintf("p%d := Lua_%s_ToUserData(L,ip%d)", i+1, o.Name, i+1)
+		}
+		pdef = append(pdef, s)
+		cin = append(cin, fmt.Sprintf("p%d", i+1))
+	}
+	rout := []string{}
+	rdef := []string{}
+	for i, o := range t.Out {
+		name := o.Name
+		if o.IsStruct {
+			name = fmt.Sprintf("* %s.%s", o.PkgName, o.Name)
+		}
+		rout = append(rout, fmt.Sprintf("r%d %s", i+1, name))
+		s := ""
+		if o.IsBool {
+			s = fmt.Sprintf("r%d = L.CheckBool(top + %d)", i+1, i+1)
+		} else if o.IsNumber {
+			s = fmt.Sprintf("r%d = %s(L.CheckNumber(top + %d))", i+1, o.Name, i+1)
+		} else if o.IsString {
+			s = fmt.Sprintf("r%d = L.CheckString(top + %d)", i+1, i+1)
+		} else if o.IsStruct {
+			s = fmt.Sprintf("r%d = Lua_%s_Check(L,top + %d)", i+1, o.Name, i+1)
+		}
+		rdef = append(rdef, s)
+	}
+
+	str := `func ({PIN}) {ROUT} {
+		top := L.GetTop()
+		defer func() {
+			L.Pop(L.GetTop() - top)
+			// fmt.Printf("callback stack change [%d->%d]\n",top,L.GetTop())
+		}()
+		lp := lua.P{
+			Fn:   {PF},
+			NRet: {NR},
+		}
+		{PDEF}
+		err := L.CallByParam({CIN})
+		if err != nil {
+			L.Error(lua.LString(err.Error()), 1)
+		}
+		{RDEF}
+		return
+	}`
+	pinStr := strings.Join(pin, ",")
+	pdefStr := strings.Join(pdef, "\n")
+	cinStr := strings.Join(cin, ",")
+	routStr := strings.Join(rout, ",")
+	if routStr != "" {
+		routStr = "(" + routStr + ")"
+	}
+	rdefStr := strings.Join(rdef, "\n")
+	pf := pfName
+	nr := fmt.Sprintf("%d", len(t.Out))
+
+	str = strings.ReplaceAll(str, "{PIN}", pinStr)
+	str = strings.ReplaceAll(str, "{ROUT}", routStr)
+	str = strings.ReplaceAll(str, "{PF}", pf)
+	str = strings.ReplaceAll(str, "{NR}", nr)
+	str = strings.ReplaceAll(str, "{PDEF}", pdefStr)
+	str = strings.ReplaceAll(str, "{CIN}", cinStr)
+	str = strings.ReplaceAll(str, "{RDEF}", rdefStr)
+	return str
 }
 
 func (m *BMethod) InDefine(i int) string {
@@ -256,6 +344,22 @@ func (o *Obj) FieldsBindSlice() [][3]any {
 			continue
 		}
 		if !(t.ElemType.IsNumber || t.ElemType.IsString) {
+			continue
+		}
+		a := [3]any{o.Name, f.Name, t}
+		m = append(m, a)
+	}
+	return m
+}
+
+func (o *Obj) FieldsBindFunc() [][3]any {
+	m := [][3]any{}
+	for _, f := range o.Fields {
+		t := f.Type
+		if !t.IsFunc {
+			continue
+		}
+		if !t.IsFuncValid {
 			continue
 		}
 		a := [3]any{o.Name, f.Name, t}
@@ -473,6 +577,13 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 			Name: fname,
 			Type: btp,
 		}
+		if btp.IsFunc {
+			err := b.LoadFuncParam(btp)
+			if err != nil {
+				fmt.Printf("ignore field func err: %s :%s %d %s/%s %s", wholeName, i+1, err.Error())
+				continue
+			}
+		}
 		bObj.Fields = append(bObj.Fields, bfd)
 		bObj.AddImportByField(bfd)
 	}
@@ -504,6 +615,10 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 			if btp.IsStruct && !btp.IsPtr {
 				return nil, fmt.Errorf("load err loadMethod In must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
 			}
+			if btp.IsFunc {
+				ignoreMethod = true
+				break
+			}
 			btp.Index = i
 			bmd.In = append(bmd.In, btp)
 		}
@@ -523,6 +638,10 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 			}
 			if btp.IsStruct && !btp.IsPtr {
 				return nil, fmt.Errorf("load err loadMethod Out must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
+			}
+			if btp.IsFunc {
+				ignoreMethod = true
+				break
 			}
 			btp.Index = i + 1
 			bmd.Out = append(bmd.Out, btp)
@@ -574,6 +693,10 @@ func (b *BindData) LoadFunc(bObj *Obj, funcs [][2]any) error {
 			if btp.IsStruct && !btp.IsPtr {
 				return fmt.Errorf("load err LoadFunc In must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
 			}
+			if btp.IsFunc {
+				ignoreMethod = true
+				break
+			}
 			btp.Index = i + 1
 			md.In = append(md.In, btp)
 		}
@@ -594,6 +717,10 @@ func (b *BindData) LoadFunc(bObj *Obj, funcs [][2]any) error {
 			if btp.IsStruct && !btp.IsPtr {
 				return fmt.Errorf("load err LoadFunc Out must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
 			}
+			if btp.IsFunc {
+				ignoreMethod = true
+				break
+			}
 			btp.Index = i + 1
 			md.Out = append(md.Out, btp)
 		}
@@ -604,6 +731,69 @@ func (b *BindData) LoadFunc(bObj *Obj, funcs [][2]any) error {
 			bObj.Funcs = append(bObj.Funcs, md)
 		}
 	}
+	return nil
+}
+
+// load func in out
+func (b *BindData) LoadFuncParam(ptp *BType) error {
+	if !ptp.IsFunc {
+		return nil
+	}
+	ptp.IsFuncValid = false
+	tp := ptp.RefType
+	ignoreMethod := false
+	//
+	for i := 0; i < tp.NumIn(); i++ {
+		t := tp.In(i)
+		btp, ignore := b.LoadType(t, nil)
+		if ignore {
+			ignoreMethod = true
+			break
+		}
+		if btp == nil {
+			return fmt.Errorf("invalid in nil")
+		}
+		if btp.IsStruct && !btp.IsPtr {
+			return fmt.Errorf("invalid in struct not ptr")
+		}
+		if btp.IsFunc {
+			return fmt.Errorf("invalid in is func")
+		}
+		if !(btp.IsNumber || btp.IsString || btp.IsBool) {
+			return fmt.Errorf("invalid in is not number string bool")
+		}
+		btp.Index = i + 1
+		ptp.In = append(ptp.In, btp)
+	}
+	if ignoreMethod {
+		return fmt.Errorf("invalid in ignore")
+	}
+	for i := 0; i < tp.NumOut(); i++ {
+		t := tp.Out(i)
+		btp, ignore := b.LoadType(t, nil)
+		if ignore {
+			ignoreMethod = true
+			break
+		}
+		if btp == nil {
+			return fmt.Errorf("invalid out nil")
+		}
+		if btp.IsStruct && !btp.IsPtr {
+			return fmt.Errorf("invalid out struct not ptr")
+		}
+		if btp.IsFunc {
+			return fmt.Errorf("invalid out is func")
+		}
+		if !(btp.IsNumber || btp.IsString || btp.IsBool) {
+			return fmt.Errorf("invalid out is not number string bool")
+		}
+		btp.Index = i + 1
+		ptp.Out = append(ptp.Out, btp)
+	}
+	if ignoreMethod {
+		return fmt.Errorf("invalid out ignore")
+	}
+	ptp.IsFuncValid = true
 	return nil
 }
 
@@ -812,6 +1002,10 @@ func (b *BindData) LoadType(tp reflect.Type, btpIn *BType) (btp *BType, ignore b
 			btp.PkgPath = tp.PkgPath()
 			btp.RefType = tp
 			btp.IsFunc = true
+			//when LoadFuncParam
+			btp.IsFuncValid = false
+			btp.In = []*BType{}
+			btp.Out = []*BType{}
 		}
 	default:
 		{
