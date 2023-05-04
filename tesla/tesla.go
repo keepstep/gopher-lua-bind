@@ -11,16 +11,21 @@ import (
 	"github.com/keepstep/gopher-lua-bind/tesla/modely"
 )
 
+type Cmp interface {
+	Equal(name string) bool
+}
+
 type Tesla struct {
-	Name   string
-	ModelX *modelx.ModelX
-	ModelE *modele.ModelE
-	ModelY *modely.ModelY
-	Err    error
-	Cars   []string
-	Models map[string]int
-	RunCb  func(name string) string
-	GoCb   func(name string, age float32) (string, int, bool)
+	Name    string
+	ModelX  *modelx.ModelX
+	ModelE  *modele.ModelE
+	ModelY  *modely.ModelY
+	Err     error
+	Cars    []string
+	Models  map[string]int
+	RunCb   func(name string) string
+	GoCb    func(name string, age float32) (string, int, bool)
+	Compare Cmp
 }
 
 func (t *Tesla) Run(mode string, speed int) (status int, err error) {
@@ -39,6 +44,10 @@ func (*Tesla) RunX(x *modelx.ModelX) (status int, err error) {
 	return 1, errors.New("error")
 }
 func (*Tesla) RunE(x *modele.ModelE) (status int, err error) {
+	return 1, errors.New("error")
+}
+
+func (*Tesla) RunCmp(cmpa Cmp, cmpx modelx.CmpX) (status int, err error) {
 	return 1, errors.New("error")
 }
 
@@ -61,4 +70,24 @@ func TeslaGetAAA(name string) *aaaa.AAA {
 func TeslaCallBack(name string, ff func(name string) string) string {
 	r := ff(strings.Repeat(name, 2))
 	return r
+}
+
+func TeslaCallInterface(name string, cmpa Cmp, cmpx modelx.CmpX) string {
+	return ""
+}
+
+type CmpSSS struct {
+	Name string
+}
+
+func (s *CmpSSS) Equal(name string) bool {
+	fmt.Printf("CmpSSS Equal %s %s\n", s.Name, name)
+	return s.Name == name
+}
+
+func TeslaGetCmp(name string) Cmp {
+	fmt.Printf("TeslaGetCmp %s\n", name)
+	return &CmpSSS{
+		Name: name,
+	}
 }

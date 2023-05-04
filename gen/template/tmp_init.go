@@ -13,5 +13,12 @@ func Preload(L *lua.LState) {
 	{{ range $i,$o := .Objs }} 
 	Preload{{ $o.Name }}(L)
 	{{end }}
+
+	{{ range $i,$o := .AllItf }} 
+	{{ if eq $o.PkgPath "" }}
+	{{ else }}
+	PreloadItf{{ $o.Name }}(L)
+	{{ end }}
+	{{end }}
 }
 `

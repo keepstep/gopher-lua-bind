@@ -27,6 +27,7 @@ type BType struct {
 	ElemKeyType *BType `json:"elem_key_type"`
 
 	IsInterface bool `json:"is_interface"`
+	IsError     bool `json:"is_error"`
 
 	IsFunc      bool     `json:"is_func"`
 	IsFuncValid bool     `json:"is_func_valid"`
@@ -74,6 +75,8 @@ func (t *BType) FuncDefine(pfName string) string {
 			s = fmt.Sprintf("p%d := lua.LString(ip%d)", i+1, i+1)
 		} else if o.IsStruct {
 			s = fmt.Sprintf("p%d := Lua_%s_ToUserData(L,ip%d)", i+1, o.Name, i+1)
+		} else if o.IsInterface {
+			s = fmt.Sprintf("p%d := Lua_%s_Interface_Check(L,ip%d)", i+1, o.Name, i+1)
 		}
 		pdef = append(pdef, s)
 		cin = append(cin, fmt.Sprintf("p%d", i+1))
@@ -168,6 +171,10 @@ func (m *BMethod) InDefine(i int) string {
 	if t.IsSlice {
 		return fmt.Sprintf("p%d := p%dToSlice(L,%d)", i+1, i+1, li)
 	}
+	if t.IsInterface {
+		return fmt.Sprintf("p%d := Lua_%s_Check(L,%d)", i+1, t.Name, li)
+	}
+
 	return ""
 }
 func (m *BMethod) InParam() string {
@@ -235,6 +242,11 @@ func (m *BMethod) OutRetArr() [][3]any {
 		} else if o.IsStruct {
 			// ud := fmt.Sprintf("%s_ud", strings.ToLower(o.Name))
 			s = fmt.Sprintf("Lua_%s_ToUserData(L,r%d)", o.Name, i+1)
+		} else if o.IsInterface {
+			// ud := fmt.Sprintf("%s_ud", strings.ToLower(o.Name))
+			s = fmt.Sprintf("Lua_%s_ToUserData(L,r%d)", o.Name, i+1)
+		} else if o.IsBool {
+			s = fmt.Sprintf("lua.LBool(r%d)", i+1)
 		} else if o.IsMap {
 			r = fmt.Sprintf("r%d", i+1)
 		} else if o.IsSlice {
@@ -278,6 +290,9 @@ func (o *Obj) LowerName() string {
 	return strings.ToLower(o.Name)
 }
 func (o *Obj) UdName() string {
+	if o.IsInterface {
+		return strings.ToLower(o.Name) + "_itf_ud"
+	}
 	return strings.ToLower(o.Name) + "_ud"
 }
 
@@ -422,6 +437,10 @@ type BindData struct {
 	AllType map[string]*BType `json:"all_type"` //tp.PkgPath()/Name
 	AllObj  map[string]*Obj   `json:"all_obj"`  //tp.PkgPath()/Name
 	Objs    []*Obj            `json:"objs"`
+	//filter
+	AllInterface     map[string]*BType `json:"interface"` //tp.PkgPath()/Name
+	InterfacePkgPath map[string]int    `json:"interface_pkg_path"`
+	AllItf           map[string]*Obj   `json:"all_itf"` //tp.PkgPath()/Name
 	//in
 	AllowPkgPath map[string]int `json:"allow_pkg_path"`
 	Items        []GenItem      `json:"-"`
@@ -462,6 +481,10 @@ func NewBindData(items []GenItem, allowPkgPath []string) *BindData {
 		AllObj:  map[string]*Obj{},
 		Objs:    []*Obj{},
 
+		AllInterface:     map[string]*BType{},
+		InterfacePkgPath: map[string]int{},
+		AllItf:           map[string]*Obj{},
+
 		AllowPkgPath: m,
 		Items:        items,
 	}
@@ -499,6 +522,16 @@ func (b *BindData) AddBType(t *BType) (out *BType) {
 		b.AllType[key] = t
 		out = t
 	}
+	if t.IsInterface {
+		outI, _ := b.AllInterface[key]
+		if outI == nil {
+			b.AllInterface[key] = b.CopyBType(t)
+			ikey := t.PkgPath
+			if ikey != "" {
+				b.InterfacePkgPath[ikey] = 1
+			}
+		}
+	}
 	return
 }
 func (b *BindData) GetObj(name, pkgPath string) (out *Obj) {
@@ -516,6 +549,16 @@ func (b *BindData) AddObj(t *Obj) (out *Obj) {
 		b.AllObj[key] = t
 		out = t
 		b.Objs = append(b.Objs, t)
+	}
+	return
+}
+
+func (b *BindData) AddInterface(t *Obj) (out *Obj) {
+	key := t.PkgPath + "/" + t.Name
+	out, _ = b.AllItf[key]
+	if out == nil {
+		b.AllItf[key] = t
+		out = t
 	}
 	return
 }
@@ -648,6 +691,96 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 		}
 		if ignoreMethod {
 			fmt.Printf("ignore method : %s :%s %d %s/%s\n", wholeName, md.Type.String(), i+1, tp.Name(), tp.PkgPath())
+			continue
+		} else {
+			bObj.Methods = append(bObj.Methods, bmd)
+		}
+	}
+	// bObj.GenImportPkg()
+	return bObj, nil
+}
+
+// load interface
+func (b *BindData) LoadInterface(btp *BType) (*Obj, error) {
+	tp := btp.RefType
+	wholeName := fmt.Sprintf("%s/%s", tp.PkgPath(), tp.Name())
+	if tp.Kind() != reflect.Interface {
+		return nil, fmt.Errorf("load err not interface : %s", wholeName)
+	}
+
+	fmt.Printf("itf info:%v %v\n", tp.String(), tp.PkgPath())
+	fmt.Printf("itf type:%v\n", tp.Name())
+	fmt.Printf("itf num_method:%v\n", tp.NumMethod())
+
+	//get cache
+	bobj := b.GetObj(btp.Name, btp.PkgPath)
+	if bobj != nil {
+		return nil, fmt.Errorf("load itf err GetObj : %s", wholeName)
+	}
+	bObj := &Obj{
+		BType:   *btp,
+		Fields:  []*BField{},
+		Methods: []*BMethod{},
+	}
+	//add to cache
+	b.AddInterface(bObj)
+	//parse method
+	nm := tp.NumMethod()
+	for i := 0; i < nm; i++ {
+		md := tp.Method(i)
+		bmd := &BMethod{
+			Name: md.Name,
+			Type: md.Type.String(),
+			In:   []*BType{},
+			Out:  []*BType{},
+		}
+		ignoreMethod := false
+		for i := 0; i < md.Type.NumIn(); i++ {
+			t := md.Type.In(i)
+			btp, ignore := b.LoadType(t, nil)
+			if ignore {
+				ignoreMethod = true
+				break
+			}
+			if btp == nil {
+				return nil, fmt.Errorf("load itf err loadMethod In: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
+			}
+			if btp.IsStruct && !btp.IsPtr {
+				return nil, fmt.Errorf("load itf err loadMethod In must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
+			}
+			if btp.IsFunc {
+				ignoreMethod = true
+				break
+			}
+			btp.Index = i
+			bmd.In = append(bmd.In, btp)
+		}
+		if ignoreMethod {
+			fmt.Printf("ignore itf method : %s :%s %d %s/%s\n", wholeName, md.Type.String(), i+1, tp.Name(), tp.PkgPath())
+			continue
+		}
+		for i := 0; i < md.Type.NumOut(); i++ {
+			t := md.Type.Out(i)
+			btp, ignore := b.LoadType(t, nil)
+			if ignore {
+				ignoreMethod = true
+				break
+			}
+			if btp == nil {
+				return nil, fmt.Errorf("load itf err loadMethod Out: %s : %s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
+			}
+			if btp.IsStruct && !btp.IsPtr {
+				return nil, fmt.Errorf("load itf err loadMethod Out must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
+			}
+			if btp.IsFunc {
+				ignoreMethod = true
+				break
+			}
+			btp.Index = i + 1
+			bmd.Out = append(bmd.Out, btp)
+		}
+		if ignoreMethod {
+			fmt.Printf("ignore itf method : %s :%s %d %s/%s\n", wholeName, md.Type.String(), i+1, tp.Name(), tp.PkgPath())
 			continue
 		} else {
 			bObj.Methods = append(bObj.Methods, bmd)
@@ -991,8 +1124,13 @@ func (b *BindData) LoadType(tp reflect.Type, btpIn *BType) (btp *BType, ignore b
 			}
 			btp.Name = tp.Name()
 			btp.PkgPath = tp.PkgPath()
+			ss := strings.Split(btp.PkgPath, "/")
+			btp.PkgName = ss[len(ss)-1]
 			btp.RefType = tp
 			btp.IsInterface = true
+			if btp.Name == "error" {
+				btp.IsError = true
+			}
 			//add to cache
 			b.AddBType(btp)
 		}
@@ -1029,6 +1167,13 @@ func (b *BindData) Load() error {
 		err = b.LoadFunc(obj, item.Funcs)
 		if err != nil {
 			fmt.Printf("Error LoadFunc:%v\n", err)
+			return err
+		}
+	}
+	for _, btp := range b.AllInterface {
+		_, err := b.LoadInterface(btp)
+		if err != nil {
+			fmt.Printf("Error Load Itf:%v\n", err)
 			return err
 		}
 	}
