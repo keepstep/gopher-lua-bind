@@ -59,9 +59,7 @@ func Lua_Map_ToTable[K TM, V TM](L *lua.LState, m map[K]V) *lua.LTable {
 	tb := L.NewTable()
 	for k, v := range m {
 		kkd := reflect.TypeOf(k).Kind()
-		vkd := reflect.TypeOf(v).Kind()
 		var klua lua.LValue = nil
-		var vlua lua.LValue = nil
 		switch kkd {
 		case reflect.Float32, reflect.Float64:
 			klua = lua.LNumber(reflect.ValueOf(k).Float())
@@ -76,23 +74,89 @@ func Lua_Map_ToTable[K TM, V TM](L *lua.LState, m map[K]V) *lua.LTable {
 		default:
 			return nil
 		}
+
+		vkd := reflect.TypeOf(v).Kind()
+		var vlua lua.LValue = nil
 		switch vkd {
 		case reflect.Float32, reflect.Float64:
-			vlua = lua.LNumber(reflect.ValueOf(k).Float())
+			vlua = lua.LNumber(reflect.ValueOf(v).Float())
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			vlua = lua.LNumber(reflect.ValueOf(k).Int())
+			vlua = lua.LNumber(reflect.ValueOf(v).Int())
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			vlua = lua.LNumber(reflect.ValueOf(k).Uint())
+			vlua = lua.LNumber(reflect.ValueOf(v).Uint())
 		case reflect.String:
-			vlua = lua.LString(reflect.ValueOf(k).String())
+			vlua = lua.LString(reflect.ValueOf(v).String())
 		case reflect.Bool:
-			vlua = lua.LBool(reflect.ValueOf(k).Bool())
+			vlua = lua.LBool(reflect.ValueOf(v).Bool())
 		default:
 			return nil
 		}
 		tb.RawSet(klua, vlua)
 	}
 	return tb
+}
+
+func Lua_Any_ToLValue(v any) lua.LValue {
+	if v == nil {
+		return lua.LNil
+	}
+	vkd := reflect.TypeOf(v).Kind()
+	var vlua lua.LValue = nil
+	switch vkd {
+	case reflect.Float32, reflect.Float64:
+		vlua = lua.LNumber(reflect.ValueOf(v).Float())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		vlua = lua.LNumber(reflect.ValueOf(v).Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		vlua = lua.LNumber(reflect.ValueOf(v).Uint())
+	case reflect.String:
+		vlua = lua.LString(reflect.ValueOf(v).String())
+	case reflect.Bool:
+		vlua = lua.LBool(reflect.ValueOf(v).Bool())
+	default:
+		return lua.LNil
+	}
+	return vlua
+}
+
+func Lua_LValueToAny(v lua.LValue) any {
+	if v == nil {
+		return nil
+	}
+	if v == lua.LNil {
+		return nil
+	}
+	switch v.Type() {
+	case lua.LTNil:
+		return nil
+	case lua.LTBool:
+		return lua.LVAsBool(v)
+	case lua.LTNumber:
+		return lua.LVAsNumber(v)
+	case lua.LTString:
+		return lua.LVAsString(v)
+	default:
+		return nil
+	}
+}
+
+func Lua_Any_Check(ls *lua.LState, n int) any {
+	if n > ls.GetTop() {
+		ls.ArgError(n, "value expected")
+	}
+	v := ls.Get(n)
+	switch v.Type() {
+	case lua.LTNil:
+		return nil
+	case lua.LTBool:
+		return lua.LVAsBool(v)
+	case lua.LTNumber:
+		return lua.LVAsNumber(v)
+	case lua.LTString:
+		return lua.LVAsString(v)
+	default:
+		return nil
+	}
 }
 
 func Preload(L *lua.LState) {

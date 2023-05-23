@@ -256,6 +256,8 @@ func Loader{{ .Name }}(L *lua.LState) int {
 				kk := {{ $key.Name }}(lua.LVAsNumber(k))
 			{{ else if  $key.IsBool }}
 				kk := lua.LVAsBool(k)
+			{{ else if  $key.IsAny }}
+				kk := Lua_LValueToAny(k)
 			{{ end }}
 
 			{{ if $value.IsString }}
@@ -266,6 +268,8 @@ func Loader{{ .Name }}(L *lua.LState) int {
 				vv := lua.LVAsBool(v)
 			{{ else if $value.IsStruct }}
 				vv := Lua_{{ $value.Name }}_LvToPtr(L,v)
+			{{ else if  $value.IsAny }}
+				vv := Lua_LValueToAny(v)
 			{{ end }}
 			m[kk] = vv
 		})
@@ -293,6 +297,8 @@ func Loader{{ .Name }}(L *lua.LState) int {
 				vv := lua.LVAsBool(v)
 			{{ else if $value.IsStruct }}
 				vv := Lua_{{ $value.Name }}_LvToPtr(L,v)
+			{{ else if $value.IsAny }}
+				vv := Lua_LValueToAny(v)
 			{{ end }}
 			m = append(m,vv)
 		})
@@ -338,6 +344,8 @@ func Loader{{ .Name }}(L *lua.LState) int {
 				kk := lua.LNumber(k)
 			{{ else if  $key.IsBool }}
 				kk := lua.LBool(k)
+			{{ else if  $key.IsAny }}
+				kk := Lua_Any_ToLValue(k)
 			{{ end }}
 
 			{{ if $value.IsString }}
@@ -352,14 +360,18 @@ func Loader{{ .Name }}(L *lua.LState) int {
 				{{ if $value.ElemType.IsNumber }}
 					vv :=Lua_SliceNumber_ToTable(L,v)	
 				{{ else if $value.ElemType.IsString }}
-					vv :=Lua_SliceString_ToTable(L,v)	
+					vv :=Lua_SliceString_ToTable(L,v)					
 				{{ else if $value.ElemType.IsBool }}	
-					vv :=Lua_SliceString_ToBool(L,v)
+					vv :=Lua_SliceBool_ToTable(L,v)
 				{{ else if $value.ElemType.IsError }}	
-					vv :=Lua_SliceString_ToError(L,v)	
+					vv :=Lua_SliceError_ToTable(L,v)
+				{{ else if $value.ElemType.IsAny }}	
+					vv :=Lua_SliceAny_ToTable(L,v)							
 				{{ end }}
 			{{ else if $value.IsMap }}		
-				vv :=Lua_Map_ToTable(L,v)								
+				vv :=Lua_Map_ToTable(L,v)
+			{{ else if  $value.IsAny }}
+				kk := Lua_Any_ToLValue(k)
 			{{ end }}
 			tb.RawSet(kk,vv)
 		}
@@ -392,12 +404,14 @@ func Loader{{ .Name }}(L *lua.LState) int {
 				{{ else if $value.ElemType.IsString }}
 					vv :=Lua_SliceString_ToTable(L,v)	
 				{{ else if $value.ElemType.IsBool }}	
-					vv :=Lua_SliceString_ToBool(L,v)
+					vv :=Lua_SliceBool_ToTable(L,v)
 				{{ else if $value.ElemType.IsError }}	
-					vv :=Lua_SliceString_ToError(L,v)	
+					vv :=Lua_SliceError_ToTable(L,v)	
+				{{ else if $value.ElemType.IsAny }}	
+					vv :=Lua_SliceAny_ToTable(L,v)						
 				{{ end }}	
 			{{ else if $value.IsMap }}		
-				vv :=Lua_Map_ToTable(L,v)	
+				vv :=Lua_Map_ToTable(L,v)
 			{{ end }}
 			tb.Append(vv)
 		}

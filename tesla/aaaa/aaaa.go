@@ -56,10 +56,18 @@ func (*AAA) DoMapMap(a int, b float32, m map[string]int) (r int, f float64, mm m
 	return a * 2, float64(b * 2), mm, ms, errors.New("error add")
 }
 
+func (*AAA) DoZZZ(a int, b any, m map[string]any) any {
+	return 2
+}
+
 type BBB struct {
 	Tag float64
 }
 
 type CCC struct {
 	Code int64
+}
+
+func AAACmp(name any, dd []any, gg map[int]any) any {
+	return nil
 }

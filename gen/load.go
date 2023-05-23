@@ -29,6 +29,8 @@ type BType struct {
 	IsInterface bool `json:"is_interface"`
 	IsError     bool `json:"is_error"`
 
+	IsAny bool `json:"is_any"`
+
 	IsFunc      bool     `json:"is_func"`
 	IsFuncValid bool     `json:"is_func_valid"`
 	In          []*BType `json:"in"`
@@ -162,6 +164,9 @@ func (m *BMethod) InDefine(i int) string {
 	if t.Name == "float32" || t.Name == "float64" {
 		return fmt.Sprintf("p%d := L.CheckNumber(%d)", i+1, li)
 	}
+	if t.IsAny {
+		return fmt.Sprintf("p%d := Lua_Any_Check(L,%d)", i+1, li)
+	}
 	if t.IsStruct {
 		return fmt.Sprintf("p%d := Lua_%s_Check(L,%d)", i+1, t.Name, li)
 	}
@@ -242,6 +247,8 @@ func (m *BMethod) OutRetArr() [][3]any {
 		} else if o.IsStruct {
 			// ud := fmt.Sprintf("%s_ud", strings.ToLower(o.Name))
 			s = fmt.Sprintf("Lua_%s_ToUserData(L,r%d)", o.Name, i+1)
+		} else if o.IsAny {
+			s = fmt.Sprintf("Lua_Any_ToLValue(r%d)", i+1)
 		} else if o.IsInterface {
 			// ud := fmt.Sprintf("%s_ud", strings.ToLower(o.Name))
 			s = fmt.Sprintf("Lua_%s_ToUserData(L,r%d)", o.Name, i+1)
@@ -1131,6 +1138,10 @@ func (b *BindData) LoadType(tp reflect.Type, btpIn *BType) (btp *BType, ignore b
 			btp.IsInterface = true
 			if btp.Name == "error" {
 				btp.IsError = true
+			} else if btp.Name == "" {
+				btp.IsAny = true
+				btp.Name = "any"
+				btp.IsInterface = false
 			}
 			//add to cache
 			b.AddBType(btp)

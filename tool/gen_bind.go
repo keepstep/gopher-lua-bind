@@ -13,7 +13,9 @@ import (
 
 func main() {
 	objs := []gen.GenItem{
-		{Obj: &aaaa.AAA{}, Funcs: nil},
+		{Obj: &aaaa.AAA{}, Funcs: [][2]any{
+			{"AAACmp", aaaa.AAACmp},
+		}},
 		{Obj: &aaaa.BBB{}, Funcs: nil},
 		{Obj: &aaaa.CCC{}, Funcs: nil},
 		{Obj: &modely.ModelY{}, Funcs: nil},
