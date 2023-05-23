@@ -991,10 +991,11 @@ func (b *BindData) LoadType(tp reflect.Type, btpIn *BType) (btp *BType, ignore b
 				btp.ElemType = etp
 				btp.IsArray = true
 				btp.RefType = tp
+				n := tp.Len()
 				if etp.IsPtr {
-					btp.Name = fmt.Sprintf("[n]*%s", etp.Name)
+					btp.Name = fmt.Sprintf("[%d]*%s", n, etp.Name)
 				} else {
-					btp.Name = fmt.Sprintf("[n]%s", etp.Name)
+					btp.Name = fmt.Sprintf("[%d]%s", n, etp.Name)
 				}
 			}
 		}

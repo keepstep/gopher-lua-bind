@@ -44,6 +44,17 @@ func (*AAA) DoSlice(s []int) (ss []string, err error) {
 	}
 	return ss, errors.New("error add")
 }
+func (*AAA) DoSliceSlice(s []int) (ss [][]string, dd [][]float32, mm []map[string]int, err error) {
+	ss = [][]string{}
+	dd = [][]float32{}
+	mm = []map[string]int{}
+	return ss, dd, mm, errors.New("error add")
+}
+func (*AAA) DoMapMap(a int, b float32, m map[string]int) (r int, f float64, mm map[string]map[string]int, ms map[string][]string, err error) {
+	mm = map[string]map[string]int{}
+	ms = map[string][]string{}
+	return a * 2, float64(b * 2), mm, ms, errors.New("error add")
+}
 
 type BBB struct {
 	Tag float64
