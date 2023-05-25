@@ -55,7 +55,7 @@ func Lua_SliceError_ToTable(L *lua.LState, m []error) *lua.LTable {
 	return tb
 }
 
-func Lua_Map_ToTable[K TM, V TM](L *lua.LState, m map[K]V) *lua.LTable {
+func Lua_Map_ToTable[K TM, V TM | map[K]V](L *lua.LState, m map[K]V) *lua.LTable {
 	tb := L.NewTable()
 	for k, v := range m {
 		kkd := reflect.TypeOf(k).Kind()
@@ -88,6 +88,11 @@ func Lua_Map_ToTable[K TM, V TM](L *lua.LState, m map[K]V) *lua.LTable {
 			vlua = lua.LString(reflect.ValueOf(v).String())
 		case reflect.Bool:
 			vlua = lua.LBool(reflect.ValueOf(v).Bool())
+		case reflect.Map:
+			vv := reflect.ValueOf(v).Interface()
+			if sm, ok := vv.(map[K]V); ok {
+				vlua = Lua_Map_ToTable(L, sm)
+			}
 		default:
 			return nil
 		}
@@ -119,6 +124,8 @@ func Lua_Any_ToLValue(v any) lua.LValue {
 	return vlua
 }
 
+//any as golang basic type
+//otherwise may cause err eg: excel SetCellValue
 func Lua_LValueToAny(v lua.LValue) any {
 	if v == nil {
 		return nil
@@ -130,16 +137,18 @@ func Lua_LValueToAny(v lua.LValue) any {
 	case lua.LTNil:
 		return nil
 	case lua.LTBool:
-		return lua.LVAsBool(v)
+		return bool(lua.LVAsBool(v))
 	case lua.LTNumber:
-		return lua.LVAsNumber(v)
+		return float64(lua.LVAsNumber(v))
 	case lua.LTString:
-		return lua.LVAsString(v)
+		return string(lua.LVAsString(v))
 	default:
 		return nil
 	}
 }
 
+//any as golang basic type
+//otherwise may cause err eg: excel SetCellValue
 func Lua_Any_Check(ls *lua.LState, n int) any {
 	if n > ls.GetTop() {
 		ls.ArgError(n, "value expected")
@@ -149,11 +158,11 @@ func Lua_Any_Check(ls *lua.LState, n int) any {
 	case lua.LTNil:
 		return nil
 	case lua.LTBool:
-		return lua.LVAsBool(v)
+		return bool(lua.LVAsBool(v))
 	case lua.LTNumber:
-		return lua.LVAsNumber(v)
+		return float64(lua.LVAsNumber(v))
 	case lua.LTString:
-		return lua.LVAsString(v)
+		return string(lua.LVAsString(v))
 	default:
 		return nil
 	}
