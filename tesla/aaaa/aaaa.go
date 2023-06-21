@@ -7,17 +7,18 @@ import (
 )
 
 type AAA struct {
-	Name   string
-	Age    int
-	Weight float32
-	Gender bool
-	B      *BBB
-	C      CCC
-	M      map[string]*CCC
-	S      []*BBB
-	A      [3]*int
-	client http.Client
-	MM     map[string]*http.Client
+	Name      string
+	Age       int
+	Weight    float32
+	Gender    bool
+	B         *BBB
+	C         CCC
+	M         map[string]*CCC
+	S         []*BBB
+	A         [3]*int
+	client    http.Client
+	MM        map[string]*http.Client
+	lowerCase string
 }
 
 func (*AAA) Do(a int, p *BBB, c *CCC) (name string, aaa *AAA, bbb *BBB, err error) {

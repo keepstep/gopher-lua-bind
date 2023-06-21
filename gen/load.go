@@ -615,6 +615,11 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 	for i := 0; i < nf; i++ {
 		ftp := tp.Field(i).Type
 		fname := tp.Field(i).Name
+		f := fname[:1]
+		if f != strings.ToUpper(f) {
+			fmt.Printf("ignore field lower: %s :%s %d %s/%s\n", wholeName, fname, i+1, ftp.Name(), ftp.PkgPath())
+			continue
+		}
 		btp, ignore := b.LoadType(ftp, nil)
 		if ignore {
 			fmt.Printf("ignore field : %s :%s %d %s/%s\n", wholeName, fname, i+1, ftp.Name(), ftp.PkgPath())
@@ -630,7 +635,7 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 		if btp.IsFunc {
 			err := b.LoadFuncParam(btp)
 			if err != nil {
-				fmt.Printf("ignore field func err: %s :%s %d %s/%s %s", wholeName, i+1, err.Error())
+				fmt.Printf("ignore field func err: %s :%d %s", wholeName, i+1, err.Error())
 				continue
 			}
 		}
@@ -644,6 +649,11 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 	nm := otp.NumMethod()
 	for i := 0; i < nm; i++ {
 		md := otp.Method(i)
+		f := md.Name[:1]
+		if f != strings.ToUpper(f) {
+			fmt.Printf("ignore method lower: %s :%s %d\n", wholeName, md.Name, i+1)
+			continue
+		}
 		bmd := &BMethod{
 			Name: md.Name,
 			Type: md.Type.String(),
