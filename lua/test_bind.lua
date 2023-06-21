@@ -27,6 +27,10 @@ local function get()
     r1,r2 = a:DoSlice({10000,1000,100,10,1})
     printInfo("a.DoSlice %s,%s",r1,r2)
     dumptag("a.DoSlice r1",r1)
+    r1 = a:DoMapAny(100,"ABC",{qq=1,ww="B",ee=true})
+    printInfo("a.DoMapAny %s",r1)
+    dumptag("a.DoMapAny r1",r1)
+    
 
     r1 = tesla.TeslaCompare("ABC")
     printInfo("tesla.TeslaCompare %d",r1)

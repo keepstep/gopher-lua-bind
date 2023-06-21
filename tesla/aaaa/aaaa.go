@@ -60,6 +60,16 @@ func (*AAA) DoZZZ(a int, b any, m map[string]any) any {
 	return 2
 }
 
+func (*AAA) DoMapAny(a int, b any, m map[string]any) map[string]any {
+	return map[string]any{
+		"123":  123,
+		"abc":  "cba",
+		"any1": a,
+		"any2": b,
+		"any3": m,
+	}
+}
+
 type BBB struct {
 	Tag float64
 }

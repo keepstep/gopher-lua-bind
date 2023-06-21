@@ -371,7 +371,7 @@ func Loader{{ .Name }}(L *lua.LState) int {
 			{{ else if $value.IsMap }}		
 				vv :=Lua_Map_ToTable(L,v)
 			{{ else if  $value.IsAny }}
-				kk := Lua_Any_ToLValue(k)
+				vv := Lua_Any_ToLValue(v)
 			{{ end }}
 			tb.RawSet(kk,vv)
 		}
@@ -412,6 +412,8 @@ func Loader{{ .Name }}(L *lua.LState) int {
 				{{ end }}	
 			{{ else if $value.IsMap }}		
 				vv :=Lua_Map_ToTable(L,v)
+			{{ else if $value.IsAny }}
+				vv := Lua_Any_ToLValue(v)	
 			{{ end }}
 			tb.Append(vv)
 		}

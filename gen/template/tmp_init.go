@@ -55,7 +55,7 @@ func Lua_SliceError_ToTable(L *lua.LState, m []error) *lua.LTable {
 	return tb
 }
 
-func Lua_Map_ToTable[K TM, V TM | map[K]V](L *lua.LState, m map[K]V) *lua.LTable {
+func Lua_Map_ToTable[K TM, V TM | any | map[K]V](L *lua.LState, m map[K]V) *lua.LTable {
 	tb := L.NewTable()
 	for k, v := range m {
 		kkd := reflect.TypeOf(k).Kind()
