@@ -51,6 +51,16 @@ func (*Tesla) RunCmp(cmpa Cmp, cmpx modelx.CmpX) (status int, err error) {
 	return 1, errors.New("error")
 }
 
+func (*Tesla) RunCallback(name string, ff func(name string, age int, flag []bool, mm map[string]int) (string, bool)) string {
+	r, s := ff(strings.Repeat(name, 2), 100, []bool{true, false, true, false}, map[string]int{
+		"name":   1,
+		"age":    2,
+		"gender": 3,
+	})
+	fmt.Printf("RunCallback %s,%t\n", r, s)
+	return r
+}
+
 func TeslaCompare(str string) int {
 	return 500
 }
@@ -67,8 +77,8 @@ func TeslaGetAAA(name string) *aaaa.AAA {
 	return &aaaa.AAA{Name: "TeslaAAA", Age: 200}
 }
 
-func TeslaCallBack(name string, ff func(name string) string) string {
-	r := ff(strings.Repeat(name, 2))
+func TeslaCallBack(name string, ff func(name string, age int, flag bool) (string, bool)) string {
+	r, _ := ff(strings.Repeat(name, 2), 100, true)
 	return r
 }
 

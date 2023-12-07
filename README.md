@@ -7,9 +7,9 @@ It is a simple bind-generation for [gopher-lua](https://github.com/yuin/gopher-l
 ## No Support List
 ```
 1. Chan
-2. Callback Function
-3. *int *float ... as struct field
-4. *int,*float,*string in function params
+2. *int *float ... as struct field
+3. *int,*float,*string in function params
+4. struct,*,interface etc. as callback func input params
 ```
 
 ## Installation

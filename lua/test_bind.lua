@@ -67,6 +67,14 @@ local function get()
     printInfo("tesla Cmp BeyondCompare  %s",rc:Equal("BeyondCompare"))
     printInfo("tesla Cmp Diff  %s",rc:Equal("Diff"))
 
+    rcb = t:RunCallback("callback",function (name,age,bs,ms)
+        printInfo("RunCallback  %s %d %s %s",name,age,bs,ms)
+        dumptag("RunCallback []bool",bs)
+        dumptag("RunCallback map[string]int",ms)
+        return "abcdefg12580",true
+    end)
+    printInfo("tesla RunCallback  %s",rcb)
+
 
 end
 get()

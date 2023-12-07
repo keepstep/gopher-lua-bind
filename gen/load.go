@@ -79,6 +79,20 @@ func (t *BType) FuncDefine(pfName string) string {
 			s = fmt.Sprintf("p%d := Lua_%s_ToUserData(L,ip%d)", i+1, o.Name, i+1)
 		} else if o.IsInterface {
 			s = fmt.Sprintf("p%d := Lua_%s_Interface_Check(L,ip%d)", i+1, o.Name, i+1)
+		} else if o.IsSlice {
+			if o.ElemType.IsNumber {
+				s = fmt.Sprintf("p%d := Lua_SliceNumber_ToTable(L,ip%d)", i+1, i+1)
+			} else if o.ElemType.IsBool {
+				s = fmt.Sprintf("p%d := Lua_SliceBool_ToTable(L,ip%d)", i+1, i+1)
+			} else if o.ElemType.IsString {
+				s = fmt.Sprintf("p%d := Lua_SliceString_ToTable(L,ip%d)", i+1, i+1)
+			} else if o.ElemType.IsError {
+				s = fmt.Sprintf("p%d := Lua_SliceError_ToTable(L,ip%d)", i+1, i+1)
+			} else {
+				s = fmt.Sprintf("p%d := Lua_%s_Unknown_Check(L,ip%d)", i+1, o.Name, i+1)
+			}
+		} else if o.IsMap {
+			s = fmt.Sprintf("p%d := Lua_Map_ToTable(L,ip%d)", i+1, i+1)
 		}
 		pdef = append(pdef, s)
 		cin = append(cin, fmt.Sprintf("p%d", i+1))
@@ -143,6 +157,29 @@ func (t *BType) FuncDefine(pfName string) string {
 	return str
 }
 
+// ----callback in param limit------
+func (t *BType) IsSimpleType() bool {
+	return t.IsBool || t.IsInt || t.IsString || t.IsFloat || t.IsNumber || t.IsError
+}
+
+func (t *BType) IsValidTypeForFuncInParam() bool {
+	if t.IsSimpleType() {
+		return true
+	}
+	if t.IsSlice && t.ElemType.IsSimpleType() {
+		return true
+	}
+	if t.IsArray && t.ElemType.IsSimpleType() {
+		return true
+	}
+	if t.IsMap && t.ElemType.IsSimpleType() && t.ElemKeyType.IsSimpleType() {
+		return true
+	}
+	return false
+}
+
+//------------------------------
+
 func (m *BMethod) InDefine(i int) string {
 	if i < 0 || i >= len(m.In) {
 		return ""
@@ -178,6 +215,12 @@ func (m *BMethod) InDefine(i int) string {
 	}
 	if t.IsInterface {
 		return fmt.Sprintf("p%d := Lua_%s_Check(L,%d)", i+1, t.Name, li)
+	}
+	if t.IsFunc {
+		pfName := fmt.Sprintf("pf%d", i+1)
+		s1 := fmt.Sprintf("pf%d := L.CheckFunction(%d)", i+1, li)
+		s2 := t.FuncDefine(pfName)
+		return fmt.Sprintf("%s\n p%d := %s", s1, i+1, s2)
 	}
 
 	return ""
@@ -232,7 +275,7 @@ func (m *BMethod) OutCanNil(i int) bool {
 	}
 }
 
-//r1,lua.LNumber(r1)
+// r1,lua.LNumber(r1)
 func (m *BMethod) OutRetArr() [][3]any {
 	c := [][3]any{}
 	for i, o := range m.Out {
@@ -390,7 +433,7 @@ func (o *Obj) FieldsBindFunc() [][3]any {
 	return m
 }
 
-//no use，所有xxx_bind 在一个目录
+// no use，所有xxx_bind 在一个目录
 func (o *Obj) GenImportPkg() {
 	m := map[string]int{}
 	var call func(*BType) = nil
@@ -675,9 +718,17 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 			if btp.IsStruct && !btp.IsPtr {
 				return nil, fmt.Errorf("load err loadMethod In must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
 			}
+			// if btp.IsFunc {
+			// 	ignoreMethod = true
+			// 	break
+			// }
 			if btp.IsFunc {
-				ignoreMethod = true
-				break
+				err := b.LoadFuncParam(btp)
+				if err != nil {
+					fmt.Printf("load err loadMethod LoadFuncParam func err: %s :%d %s", wholeName, i+1, err.Error())
+					ignoreMethod = true
+					break
+				}
 			}
 			btp.Index = i
 			bmd.In = append(bmd.In, btp)
@@ -765,10 +816,19 @@ func (b *BindData) LoadInterface(btp *BType) (*Obj, error) {
 			if btp.IsStruct && !btp.IsPtr {
 				return nil, fmt.Errorf("load itf err loadMethod In must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
 			}
+			// if btp.IsFunc {
+			// 	ignoreMethod = true
+			// 	break
+			// }
 			if btp.IsFunc {
-				ignoreMethod = true
-				break
+				err := b.LoadFuncParam(btp)
+				if err != nil {
+					fmt.Printf("load itf err loadMethod LoadFuncParam func err: %s :%d %s", wholeName, i+1, err.Error())
+					ignoreMethod = true
+					break
+				}
 			}
+
 			btp.Index = i
 			bmd.In = append(bmd.In, btp)
 		}
@@ -843,9 +903,17 @@ func (b *BindData) LoadFunc(bObj *Obj, funcs [][2]any) error {
 			if btp.IsStruct && !btp.IsPtr {
 				return fmt.Errorf("load err LoadFunc In must be pointer: %s :%s %d %s/%s", wholeName, md.Name, i+1, t.Name(), t.PkgPath())
 			}
+			// if btp.IsFunc {
+			// 	ignoreMethod = true
+			// 	break
+			// }
 			if btp.IsFunc {
-				ignoreMethod = true
-				break
+				err := b.LoadFuncParam(btp)
+				if err != nil {
+					fmt.Printf("load err LoadFunc LoadFuncParam func err: %s :%d %s", wholeName, i+1, err.Error())
+					ignoreMethod = true
+					break
+				}
 			}
 			btp.Index = i + 1
 			md.In = append(md.In, btp)
@@ -909,8 +977,11 @@ func (b *BindData) LoadFuncParam(ptp *BType) error {
 		if btp.IsFunc {
 			return fmt.Errorf("invalid in is func")
 		}
-		if !(btp.IsNumber || btp.IsString || btp.IsBool) {
-			return fmt.Errorf("invalid in is not number string bool")
+		// if !(btp.IsNumber || btp.IsString || btp.IsBool) {
+		// 	return fmt.Errorf("invalid in is not number string bool")
+		// }
+		if !btp.IsValidTypeForFuncInParam() {
+			return fmt.Errorf("invalid in is not IsValidTypeForFuncInParam")
 		}
 		btp.Index = i + 1
 		ptp.In = append(ptp.In, btp)
@@ -947,7 +1018,7 @@ func (b *BindData) LoadFuncParam(ptp *BType) error {
 	return nil
 }
 
-//return value is a copy from AllType
+// return value is a copy from AllType
 func (b *BindData) LoadType(tp reflect.Type, btpIn *BType) (btp *BType, ignore bool) {
 	btp = btpIn
 	if btp == nil {
