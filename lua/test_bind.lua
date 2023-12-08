@@ -5,6 +5,7 @@ local aaa = require("aaa")
 local bbb = require("bbb")
 local ccc = require("ccc")
 local tesla = require("tesla")
+local teslae = require("modele")
 
 local function get()
     a = aaa.new()
@@ -74,6 +75,12 @@ local function get()
         return "abcdefg12580",true
     end)
     printInfo("tesla RunCallback  %s",rcb)
+
+    local te = teslae.new()
+    te:Speed(1000)
+    t:ModelE(te)
+    t:RunE()
+    te:Run(200)
 
 
 end

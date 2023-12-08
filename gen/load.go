@@ -372,6 +372,23 @@ func (o *Obj) FieldsBind() map[string][2]string {
 	return m
 }
 
+// struct* field
+func (o *Obj) FieldsBindStructPtr() map[string][2]string {
+	m := map[string][2]string{}
+	for _, f := range o.Fields {
+		t := f.Type
+		a := [2]string{"", ""}
+		if t.IsStruct && t.IsPtr {
+			a[0] = fmt.Sprintf("Lua_%s_Check(L,2)", t.Name)
+			a[1] = fmt.Sprintf("Lua_%s_ToUserData", t.Name)
+		} else {
+			continue
+		}
+		m[f.Name] = a
+	}
+	return m
+}
+
 // table field
 func (o *Obj) FieldsBindMap() [][3]any {
 	m := [][3]any{}
@@ -464,7 +481,10 @@ func (o *Obj) GenImportPkg() {
 		o.Import = map[string]int{}
 	}
 	for p := range m {
-		o.Import[p] = 1
+		p = strings.TrimSpace(p)
+		if len(p) > 0 {
+			o.Import[p] = 1
+		}
 	}
 }
 
@@ -472,13 +492,18 @@ func (o *Obj) AddImport(path string) {
 	if o.Import == nil {
 		o.Import = map[string]int{}
 	}
-	o.Import[path] = 1
+	path = strings.TrimSpace(path)
+	if len(path) > 0 {
+		o.Import[path] = 1
+	}
 }
 
 func (o *Obj) AddImportByField(fd *BField) {
 	t := fd.Type
 	if t.Name == "error" && t.IsInterface {
 		o.AddImport("errors")
+	} else {
+		o.AddImport(t.PkgPath)
 	}
 }
 
@@ -764,7 +789,7 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 			bObj.Methods = append(bObj.Methods, bmd)
 		}
 	}
-	// bObj.GenImportPkg()
+	bObj.GenImportPkg()
 	return bObj, nil
 }
 

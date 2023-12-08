@@ -43,7 +43,10 @@ func (t *Tesla) Run(mode string, speed int) (status int, err error) {
 func (*Tesla) RunX(x *modelx.ModelX) (status int, err error) {
 	return 1, errors.New("error")
 }
-func (*Tesla) RunE(x *modele.ModelE) (status int, err error) {
+func (t *Tesla) RunE() (status int, err error) {
+	if t.ModelE != nil {
+		t.ModelE.Run(0)
+	}
 	return 1, errors.New("error")
 }
 

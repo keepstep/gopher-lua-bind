@@ -10,7 +10,7 @@ package bind
 
 import (
 	lua "github.com/yuin/gopher-lua"
-	"{{ .PkgPath }}"
+	{{/*"{{ .PkgPath }}"*/}}
 	{{ range $path,$i := .Import }}
 	"{{ $path }}"
 	{{ end }}
@@ -162,6 +162,25 @@ func Lua_{{ $Name }}_GetSet_{{ $fn }}(L *lua.LState) int {
 }
 {{ end }}
 
+{{ range $fn,$ff := .FieldsBindStructPtr }} 
+func Lua_{{ $Name }}_GetSet_{{ $fn }}(L *lua.LState) int {
+	ins := Lua_{{ $Name }}_Check(L, 1)
+	if ins == nil {
+		return 0
+	}
+    if L.GetTop() == 2 {
+        ins.{{ $fn }} = {{ index $ff 0 }}
+        return 0
+    }
+	if ins.{{ $fn }} == nil {
+		L.Push(lua.LNil)
+		return 1
+	}
+    L.Push({{ index $ff 1 }}(L,ins.{{ $fn }}))
+    return 1
+}
+{{ end }}
+
 
 {{ range $i,$ff := .FieldsBindSlice }} 
 {{ template "field_func_slice" $ff}}
@@ -199,6 +218,11 @@ func Loader{{ .Name }}(L *lua.LState) int {
 		
 		//field
 		{{ range $fn,$ff := .FieldsBind }} 
+			"{{- $fn -}}" :  Lua_{{ $Name }}_GetSet_{{ $fn }},
+		{{ end }}
+
+		//field struct*
+		{{ range $fn,$ff := .FieldsBindStructPtr }} 
 			"{{- $fn -}}" :  Lua_{{ $Name }}_GetSet_{{ $fn }},
 		{{ end }}
 
