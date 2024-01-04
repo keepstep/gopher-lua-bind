@@ -16,8 +16,8 @@ type GenItem struct {
 }
 
 // func
-//allowPkgPath
-func Gen(items []GenItem, allowPkgPath []string, outDir string) error {
+// allowPkgPath
+func Gen(items []GenItem, allowPkgPath []string, outDir string, genLuaSnippet bool) error {
 
 	b := NewBindData(items, allowPkgPath)
 	err := b.Load()
@@ -45,6 +45,14 @@ func Gen(items []GenItem, allowPkgPath []string, outDir string) error {
 		panic(err)
 	}
 
+	luaDir := dirName + "/lua"
+	if genLuaSnippet {
+		err = os.Mkdir(luaDir, 0666)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	for _, obj := range b.AllObj {
 		bindFile := fmt.Sprintf("%s/struct_%s.go", dirName, obj.LowerName())
 		t, err := template.New("bind").Parse(tmp.TmpBind)
@@ -61,6 +69,26 @@ func Gen(items []GenItem, allowPkgPath []string, outDir string) error {
 		err = t.Execute(lf, obj)
 		if err != nil {
 			return err
+		}
+	}
+	if genLuaSnippet {
+		for _, obj := range b.AllObj {
+			bindFile := fmt.Sprintf("%s/struct_%s.lua", luaDir, obj.LowerName())
+			t, err := template.New("lua_snippet").Parse(tmp.TmpLuaSnippet)
+			if err != nil {
+				return err
+			}
+			lf, err := os.Create(bindFile)
+			if err != nil {
+				panic(err)
+			}
+			defer func() {
+				lf.Close()
+			}()
+			err = t.Execute(lf, obj)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

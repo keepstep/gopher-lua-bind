@@ -46,6 +46,10 @@ type BField struct {
 	Type *BType `json:"type"`
 }
 
+func (t *BField) RefType() string {
+	return t.Type.RefType.String()
+}
+
 type BMethod struct {
 	Name string   `json:"name"`
 	Type string   `json:"type"`
@@ -326,6 +330,30 @@ func (m *BMethod) OutType() string {
 	return strings.Join(c, ", ")
 }
 
+// for lua snippet
+func (m *BMethod) InType2() string {
+	c := []string{}
+	for _, t := range m.In {
+		if t.IsFunc {
+			c = append(c, t.RefType.String())
+		} else {
+			c = append(c, t.Name)
+		}
+	}
+	return strings.Join(c, ", ")
+}
+func (m *BMethod) OutType2() string {
+	c := []string{}
+	for _, t := range m.Out {
+		if t.IsFunc {
+
+		} else {
+			c = append(c, t.Name)
+		}
+	}
+	return strings.Join(c, ", ")
+}
+
 type Obj struct {
 	BType   `json:"type"`
 	Fields  []*BField  `json:"fields"`
@@ -347,23 +375,27 @@ func (o *Obj) UdName() string {
 }
 
 // simple field
-func (o *Obj) FieldsBind() map[string][2]string {
-	m := map[string][2]string{}
+func (o *Obj) FieldsBind() map[string][3]string {
+	m := map[string][3]string{}
 	for _, f := range o.Fields {
 		t := f.Type
-		a := [2]string{"", ""}
+		a := [3]string{"", ""}
 		if strings.HasPrefix(t.Name, "int") || strings.HasPrefix(t.Name, "uint") {
 			a[0] = fmt.Sprintf("%s(L.CheckInt64(2))", t.Name)
 			a[1] = "lua.LNumber"
+			a[2] = t.Name
 		} else if strings.HasPrefix(t.Name, "float") {
 			a[0] = fmt.Sprintf("%s(L.CheckNumber(2))", t.Name)
 			a[1] = "lua.LNumber"
+			a[2] = t.Name
 		} else if t.Name == "string" {
 			a[0] = fmt.Sprintf("%s(L.CheckString(2))", t.Name)
 			a[1] = "lua.LString"
+			a[2] = t.Name
 		} else if t.Name == "error" && t.IsInterface {
 			a[0] = "errors.New(L.CheckString(2))"
 			a[1] = fmt.Sprintf("Lua_%s_ErrorToLv", o.Name)
+			a[2] = t.Name
 		} else {
 			continue
 		}
@@ -373,14 +405,15 @@ func (o *Obj) FieldsBind() map[string][2]string {
 }
 
 // struct* field
-func (o *Obj) FieldsBindStructPtr() map[string][2]string {
-	m := map[string][2]string{}
+func (o *Obj) FieldsBindStructPtr() map[string][3]string {
+	m := map[string][3]string{}
 	for _, f := range o.Fields {
 		t := f.Type
-		a := [2]string{"", ""}
+		a := [3]string{"", "", ""}
 		if t.IsStruct && t.IsPtr {
 			a[0] = fmt.Sprintf("Lua_%s_Check(L,2)", t.Name)
 			a[1] = fmt.Sprintf("Lua_%s_ToUserData", t.Name)
+			a[2] = t.Name
 		} else {
 			continue
 		}
@@ -1274,6 +1307,9 @@ func (b *BindData) LoadType(tp reflect.Type, btpIn *BType) (btp *BType, ignore b
 			btp.PkgPath = tp.PkgPath()
 			btp.RefType = tp
 			btp.IsFunc = true
+			if btp.Name == "" {
+				btp.Name = "func"
+			}
 			//when LoadFuncParam
 			btp.IsFuncValid = false
 			btp.In = []*BType{}

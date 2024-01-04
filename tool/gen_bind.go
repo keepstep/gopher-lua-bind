@@ -30,7 +30,7 @@ func main() {
 			{"TeslaGetCmp", tesla.TeslaGetCmp},
 		}},
 	}
-	err := gen.Gen(objs, []string{}, "./")
+	err := gen.Gen(objs, []string{}, "./", true)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}

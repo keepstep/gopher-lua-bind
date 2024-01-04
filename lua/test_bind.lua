@@ -82,6 +82,8 @@ local function get()
     t:RunE()
     te:Run(200)
 
+    dumptag("tesla",getmetatable(t))
+
 
 end
 get()
