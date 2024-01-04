@@ -55,7 +55,7 @@ func Gen(items []GenItem, allowPkgPath []string, outDir string, genLuaSnippet bo
 
 	for _, obj := range b.AllObj {
 		bindFile := fmt.Sprintf("%s/struct_%s.go", dirName, obj.LowerName())
-		t, err := template.New("bind").Parse(tmp.TmpBind)
+		t, err := template.New("bind").Parse(tmp.TmpStruct)
 		if err != nil {
 			return err
 		}

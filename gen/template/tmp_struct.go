@@ -1,6 +1,6 @@
 package template
 
-const TmpBind = `
+const TmpStruct = `
 {{ $ud_name := .UdName }}
 {{ $lower_name := .LowerName }}
 {{ $Name := .Name }}
