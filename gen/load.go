@@ -450,6 +450,22 @@ func (o *Obj) FieldsBindFunc() [][3]any {
 	return m
 }
 
+func (o *Obj) FieldsBindInterface() map[string][2]string {
+	m := map[string][2]string{}
+	for _, f := range o.Fields {
+		t := f.Type
+		a := [2]string{"", ""}
+		if t.IsInterface && !t.IsError {
+			a[0] = fmt.Sprintf("Lua_%s_Check(L,2)", t.Name)
+			a[1] = fmt.Sprintf("Lua_%s_ToUserData", t.Name)
+		} else {
+			continue
+		}
+		m[f.Name] = a
+	}
+	return m
+}
+
 // no use，所有xxx_bind 在一个目录
 func (o *Obj) GenImportPkg() {
 	m := map[string]int{}
