@@ -71,6 +71,53 @@ func Lua_{{ .Name}}_Check(L *lua.LState, n int) *{{ .PkgName }}.{{ .Name }} {
 	return nil
 }
 
+func Lua_{{ .Name}}_Check_Slice(L *lua.LState, n int) []*{{ .PkgName }}.{{ .Name }} {
+	m := []*{{ .PkgName }}.{{ .Name }}{}
+	tb := L.CheckTable(n)
+	tb.ForEach(func(k, v lua.LValue) {
+		vv := Lua_{{ .Name }}_LvToPtr(L, v)
+		if vv != nil {
+			m = append(m, vv)
+		}
+	})
+	return m
+}
+
+func Lua_{{ .Name}}_Check_Map[T TM](L *lua.LState, n int) map[T]*{{ .PkgName }}.{{ .Name }} {
+	m := map[T]*{{ .PkgName }}.{{ .Name }}{}
+	tb := L.CheckTable(n)
+	tb.ForEach(func(k, v lua.LValue) {
+		var a T
+		kd := reflect.TypeOf(a).Kind()
+		kk,ok := Lua_LValueToAny_Reflect(k,kd).(T)
+		vv := Lua_{{ .Name }}_LvToPtr(L, v)
+		if ok && vv != nil {
+			m[kk] = vv
+		}
+	})
+	return m
+}
+
+func Lua_{{ .Name}}_Slice_To_Table(L *lua.LState, m []*{{ .PkgName }}.{{ .Name }}) *lua.LTable {
+	tb := L.NewTable()
+	for _, v := range m {
+		vv := Lua_{{ .Name}}_ToUserData(L, v)
+		tb.Append(vv)
+	}
+	return tb
+}
+
+func Lua_{{ .Name}}_Map_To_Table[T TM](L *lua.LState, m map[T]*{{ .PkgName }}.{{ .Name }}) *lua.LTable {
+	tb := L.NewTable()
+	for k, v := range m {
+		kk := Lua_Any_ToLValue(k)
+		vv := Lua_{{ .Name}}_ToUserData(L, v)
+		tb.RawSet(kk, vv)
+	}
+	return tb
+}
+
+
 // funcs
 {{ range $idx,$fun := .Funcs }} 
 //{{ $lower_name }}:{{- $fun.Name -}}({{- $fun.InType -}}) returns ( {{- $fun.OutType -}} )
@@ -259,7 +306,7 @@ func Loader{{ .Name }}(L *lua.LState) int {
 			"{{- index $ff 1 -}}" :  Lua_{{ $Name }}_GetSet_{{ index $ff 1}},
 		{{ end }}
 
-		//field callback
+		//field func
 		{{ range $i,$ff := .FieldsBindFunc }} 
 			"{{- index $ff 1 -}}" :  Lua_{{ $Name }}_Set_{{ index $ff 1}},
 		{{ end }}

@@ -16,26 +16,26 @@ local f =  obj:{{ $fn }}()
 obj:{{ $fn }}({{ index $ff 2 }})
 {{ end }}
 
--- fields struct ptr
+-- field struct ptr
 {{ range $fn,$ff := .FieldsBindStructPtr }}
 local f =  obj:{{ $fn }}()
 obj:{{ $fn }}({{ index $ff 2 }})
 {{ end }}
 
--- fields interface
+-- field interface
 {{ range $fn,$ff := .FieldsBindInterface }}
 local f =  obj:{{ $fn }}()
-obj:{{ $fn }}({{ index $ff 1 }})
+obj:{{ $fn }}({{ (index $ff 2).RefType }})
 {{ end }}
 
--- fields slice
+-- field slice
 {{ range $i,$ff := .FieldsBindSlice }}
 {{ $name := (index $ff 2).ElemType.Name }}
 local f =  obj:{{ index $ff 1 }}()
 obj:{{ index $ff 1 }}([]{{ $name }})
 {{ end }}
 
--- fields map
+-- field map
 {{ range $i,$ff := .FieldsBindMap }}
 {{ $keyName := (index $ff 2).ElemKeyType.Name }}
 {{ $valueName := (index $ff 2).ElemType.Name }}
@@ -43,10 +43,12 @@ local f =  obj:{{ index $ff 1 }}()
 obj:{{ index $ff 1 }}(map[{{ $keyName }}]{{ $valueName }})
 {{ end }}
 
--- field callback
+-- field func
 {{ range $i,$ff := .FieldsBindFunc }}
-local f =  obj:{{ index $ff 1 }}()
+local f
 obj:{{ index $ff 1  }}( {{ (index $ff 2).RefType }} )
+f = obj:{{ index $ff 1 }}()
+f()
 {{ end }}
 
 -- methods

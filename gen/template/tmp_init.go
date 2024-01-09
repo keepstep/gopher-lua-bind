@@ -168,6 +168,128 @@ func Lua_Any_Check(ls *lua.LState, n int) any {
 	}
 }
 
+func Lua_LValueToAny_Reflect(v lua.LValue, kd reflect.Kind) any {
+	if v == nil {
+		return nil
+	}
+	if v == lua.LNil {
+		return nil
+	}
+	switch v.Type() {
+	case lua.LTNil:
+		return nil
+	case lua.LTBool:
+		return bool(lua.LVAsBool(v))
+	case lua.LTNumber:
+		if kd == reflect.Int {
+			return int(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Int8 {
+			return int8(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Int16 {
+			return int16(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Int32 {
+			return int32(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Int64 {
+			return int64(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Uint {
+			return uint(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Uint8 {
+			return uint8(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Uint16 {
+			return uint16(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Uint32 {
+			return uint32(lua.LVAsNumber(v))
+		}
+		if kd == reflect.Uint64 {
+			return uint64(lua.LVAsNumber(v))
+		}
+	case lua.LTString:
+		return string(lua.LVAsString(v))
+	default:
+		return nil
+	}
+	return nil
+}
+
+func Lua_Slice_Check_JsonStr[T TM](L *lua.LState, n int) []T {
+	m := []T{}
+	s := L.CheckString(n)
+	json.Unmarshal([]byte(s), &m)
+	return m
+}
+
+func Lua_Map_Check_JsonStr[K TM, V TM | any | map[K]V](L *lua.LState, n int) map[K]V {
+	m := map[K]V{}
+	s := L.CheckString(n)
+	json.Unmarshal([]byte(s), &m)
+	return m
+}
+
+func Lua_Slice_Check[T TM](L *lua.LState, n int) []T {
+	m := []T{}
+	tb := L.CheckTable(n)
+	var a T
+	kd := reflect.TypeOf(a).Kind()
+	tb.ForEach(func(k, v lua.LValue) {
+		var vv any
+		switch v.Type() {
+		case lua.LTBool:
+			fallthrough
+		case lua.LTString:
+			fallthrough
+		case lua.LTNumber:
+			vv = Lua_LValueToAny_Reflect(v, kd)
+			if vv != nil {
+				m = append(m, vv.(T))
+			}
+		}
+
+	})
+	return m
+}
+
+func Lua_Map_Check[K TM, V TM | any](L *lua.LState, n int) map[K]V {
+	m := map[K]V{}
+	tb := L.CheckTable(n)
+	var a K
+	var b K
+	kkd := reflect.TypeOf(a).Kind()
+	vkd := reflect.TypeOf(b).Kind()
+	tb.ForEach(func(k, v lua.LValue) {
+		var kk any
+		switch k.Type() {
+		case lua.LTBool:
+			fallthrough
+		case lua.LTString:
+			fallthrough
+		case lua.LTNumber:
+			kk = Lua_LValueToAny_Reflect(k, kkd)
+		}
+
+		var vv any
+		switch v.Type() {
+		case lua.LTBool:
+			fallthrough
+		case lua.LTString:
+			fallthrough
+		case lua.LTNumber:
+			vv = Lua_LValueToAny_Reflect(v, vkd)
+		}
+		if kk != nil && vv != nil {
+			m[kk.(K)] = vv.(V)
+		}
+	})
+	return m
+}
+
 func Preload(L *lua.LState) {
 	{{ range $i,$o := .Objs }} 
 	Preload{{ $o.Name }}(L)

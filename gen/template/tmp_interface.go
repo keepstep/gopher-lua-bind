@@ -62,6 +62,89 @@ func Lua_{{ .Name}}_Check(L *lua.LState, n int) {{ .PkgName }}.{{ .Name }} {
 	return nil
 }
 
+func Lua_{{ .Name}}_Check_Slice(L *lua.LState, n int) []{{ .PkgName }}.{{ .Name }} {
+	m := []{{ .PkgName }}.{{ .Name }}{}
+	tb := L.CheckTable(n)
+	tb.ForEach(func(k, v lua.LValue) {
+		vv := Lua_{{ .Name }}_LvToPtr(L, v)
+		if vv != nil {
+			m = append(m, vv)
+		}
+	})
+	return m
+}
+
+func Lua_{{ .Name}}_Check_Map[T TM](L *lua.LState, n int) map[T]{{ .PkgName }}.{{ .Name }} {
+	m := map[T]{{ .PkgName }}.{{ .Name }}{}
+	tb := L.CheckTable(n)
+	tb.ForEach(func(k, v lua.LValue) {
+		var a T
+		kd := reflect.TypeOf(a).Kind()
+		kk,ok := Lua_LValueToAny_Reflect(k,kd).(T)
+		vv := Lua_{{ .Name }}_LvToPtr(L, v)
+		if ok && vv != nil {
+			m[kk] = vv
+		}
+	})
+	return m
+}
+
+func Lua_{{ .Name}}_Slice_To_Table(L *lua.LState, m []{{ .PkgName }}.{{ .Name }}) *lua.LTable {
+	tb := L.NewTable()
+	for _, v := range m {
+		vv := Lua_{{ .Name}}_ToUserData(L, v)
+		tb.Append(vv)
+	}
+	return tb
+}
+
+func Lua_{{ .Name}}_Map_To_Table[T TM](L *lua.LState, m map[T]{{ .PkgName }}.{{ .Name }}) *lua.LTable {
+	tb := L.NewTable()
+	for k, v := range m {
+		kk := Lua_Any_ToLValue(k)
+		vv := Lua_{{ .Name}}_ToUserData(L, v)
+		tb.RawSet(kk, vv)
+	}
+	return tb
+}
+
+
+// funcs
+{{ range $idx,$fun := .Funcs }} 
+//{{ $lower_name }}:{{- $fun.Name -}}({{- $fun.InType -}}) returns ( {{- $fun.OutType -}} )
+func Lua_{{ $Name }}_{{- $fun.Name -}}(L *lua.LState) int {
+	{{ range $i,$t := .In }} 
+		{{ if $t.IsMap }}
+			{{ template "p_to_map" $t }}
+		{{ else if $t.IsSlice }}
+			{{ template "p_to_slice" $t }}
+		{{ end }}
+		{{ $fun.InDefine $i -}}
+
+	{{ end }}
+	{{ $fun.OutRetStr }} {{$fun.PkgName}}.{{- $fun.Name -}}( {{- $fun.InParam -}} )
+
+	{{ range $i,$t := $fun.OutRetArr }}
+		{{ if (index $t 2).IsMap }}
+			{{ template "r_map_to_table" (index $t 2) }}
+		{{ else if (index $t 2).IsSlice }}
+			{{ template "r_slice_to_table" (index $t 2) }}
+		{{ end }}
+		{{ if $fun.OutCanNil $i }}
+			if {{ index $t 0 }} == nil {
+				L.Push(lua.LNil)
+			}else{
+				L.Push({{ index $t 1 }})
+			}
+		{{ else }}
+			L.Push({{ index $t 1 }})
+		{{ end }}
+	{{ end }}
+
+	return {{ $fun.OutLen }}
+}
+{{ end }}
+
 // methods
 {{ range $idx,$fun := .Methods }} 
 //{{ $lower_name }}:{{- $fun.Name -}}({{- $fun.InType -}}) returns ( {{- $fun.OutType -}} )

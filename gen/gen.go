@@ -1,7 +1,6 @@
 package gen
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,8 +23,8 @@ func Gen(items []GenItem, allowPkgPath []string, outDir string, genLuaSnippet bo
 	if err != nil {
 		panic(err)
 	}
-	bs, _ := json.MarshalIndent(b.AllItf, "", "    ")
-	fmt.Println(string(bs))
+	// bs, _ := json.MarshalIndent(b.AllItf, "", "    ")
+	// fmt.Println(string(bs))
 
 	dirName := ""
 	if outDir == "" {

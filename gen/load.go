@@ -69,6 +69,20 @@ func (t *BType) FuncDefine(pfName string) string {
 		name := o.Name
 		if o.IsStruct {
 			name = fmt.Sprintf("* %s.%s", o.PkgName, o.Name)
+		} else if o.IsInterface && !o.IsError {
+			name = fmt.Sprintf("%s.%s", o.PkgName, o.Name)
+		} else if o.IsSlice && o.ElemType.IsStruct {
+			name = fmt.Sprintf("[]*%s.%s", o.ElemType.PkgName, o.ElemType.Name)
+		} else if o.IsSlice && o.ElemType.IsInterface && !o.ElemType.IsError {
+			name = fmt.Sprintf("[]%s.%s", o.ElemType.PkgName, o.ElemType.Name)
+		} else if o.IsMap && o.ElemKeyType.IsSimpleType() {
+			if o.ElemType.IsSimpleType() {
+				name = fmt.Sprintf("map[%s]%s", o.ElemKeyType.Name, o.ElemType.Name)
+			} else if o.ElemType.IsStruct {
+				name = fmt.Sprintf("map[%s]*%s.%s", o.ElemKeyType.Name, o.ElemType.PkgName, o.ElemType.Name)
+			} else if o.ElemType.IsInterface && !o.ElemType.IsError {
+				name = fmt.Sprintf("map[%s]%s.%s", o.ElemKeyType.Name, o.ElemType.PkgName, o.ElemType.Name)
+			}
 		}
 		pin = append(pin, fmt.Sprintf("ip%d %s", i+1, name))
 
@@ -81,8 +95,10 @@ func (t *BType) FuncDefine(pfName string) string {
 			s = fmt.Sprintf("p%d := lua.LString(ip%d)", i+1, i+1)
 		} else if o.IsStruct {
 			s = fmt.Sprintf("p%d := Lua_%s_ToUserData(L,ip%d)", i+1, o.Name, i+1)
+		} else if o.IsError {
+			s = fmt.Sprintf("p%d := lua.LString(ip%d.toString())", i+1, i+1)
 		} else if o.IsInterface {
-			s = fmt.Sprintf("p%d := Lua_%s_Interface_Check(L,ip%d)", i+1, o.Name, i+1)
+			s = fmt.Sprintf("p%d := Lua_%s_ToUserData(L,ip%d)", i+1, o.Name, i+1)
 		} else if o.IsSlice {
 			if o.ElemType.IsNumber {
 				s = fmt.Sprintf("p%d := Lua_SliceNumber_ToTable(L,ip%d)", i+1, i+1)
@@ -92,11 +108,25 @@ func (t *BType) FuncDefine(pfName string) string {
 				s = fmt.Sprintf("p%d := Lua_SliceString_ToTable(L,ip%d)", i+1, i+1)
 			} else if o.ElemType.IsError {
 				s = fmt.Sprintf("p%d := Lua_SliceError_ToTable(L,ip%d)", i+1, i+1)
+			} else if o.ElemType.IsStruct {
+				s = fmt.Sprintf("p%d := Lua_%s_Slice_To_Table(L,ip%d)", i+1, o.ElemType.Name, i+1)
+			} else if o.IsSlice && o.ElemType.IsInterface && !o.ElemType.IsError {
+				s = fmt.Sprintf("p%d := Lua_%s_Slice_To_Table(L,ip%d)", i+1, o.ElemType.Name, i+1)
 			} else {
-				s = fmt.Sprintf("p%d := Lua_%s_Unknown_Check(L,ip%d)", i+1, o.Name, i+1)
+				return ""
 			}
 		} else if o.IsMap {
-			s = fmt.Sprintf("p%d := Lua_Map_ToTable(L,ip%d)", i+1, i+1)
+			if o.ElemType.IsStruct {
+				if o.ElemKeyType.IsSimpleType() {
+					s = fmt.Sprintf("p%d := Lua_%s_Map_To_Table[%s](L,ip%d)", i+1, o.ElemType.Name, o.ElemKeyType.Name, i+1)
+				} else {
+					return ""
+				}
+			} else if o.ElemType.IsInterface && !o.ElemType.IsError {
+				s = fmt.Sprintf("p%d := Lua_%s_Map_To_Table[%s](L,ip%d)", i+1, o.ElemType.Name, o.ElemKeyType.Name, i+1)
+			} else if o.ElemKeyType.IsSimpleType() && (o.ElemType.IsSimpleType() || o.ElemType.IsAny) {
+				s = fmt.Sprintf("p%d := Lua_Map_ToTable(L,ip%d)", i+1, i+1)
+			}
 		}
 		pdef = append(pdef, s)
 		cin = append(cin, fmt.Sprintf("p%d", i+1))
@@ -107,7 +137,22 @@ func (t *BType) FuncDefine(pfName string) string {
 		name := o.Name
 		if o.IsStruct {
 			name = fmt.Sprintf("* %s.%s", o.PkgName, o.Name)
+		} else if o.IsInterface && !o.IsError {
+			name = fmt.Sprintf("%s.%s", o.PkgName, o.Name)
+		} else if o.IsSlice && o.ElemType.IsStruct {
+			name = fmt.Sprintf("[]*%s.%s", o.ElemType.PkgName, o.ElemType.Name)
+		} else if o.IsSlice && o.ElemType.IsInterface && !o.ElemType.IsError {
+			name = fmt.Sprintf("[]%s.%s", o.ElemType.PkgName, o.ElemType.Name)
+		} else if o.IsMap && o.ElemKeyType.IsSimpleType() {
+			if o.ElemType.IsSimpleType() {
+				name = fmt.Sprintf("map[%s]%s", o.ElemKeyType.Name, o.ElemType.Name)
+			} else if o.ElemType.IsInterface && !o.ElemType.IsError {
+				name = fmt.Sprintf("map[%s]%s.%s", o.ElemKeyType.Name, o.ElemType.PkgName, o.ElemType.Name)
+			} else {
+				name = fmt.Sprintf("map[%s]*%s.%s", o.ElemKeyType.Name, o.ElemType.PkgName, o.ElemType.Name)
+			}
 		}
+
 		rout = append(rout, fmt.Sprintf("r%d %s", i+1, name))
 		s := ""
 		if o.IsBool {
@@ -118,6 +163,34 @@ func (t *BType) FuncDefine(pfName string) string {
 			s = fmt.Sprintf("r%d = L.CheckString(top + %d)", i+1, i+1)
 		} else if o.IsStruct {
 			s = fmt.Sprintf("r%d = Lua_%s_Check(L,top + %d)", i+1, o.Name, i+1)
+		} else if o.IsError {
+			s = fmt.Sprintf("r%d = errors.New(L.CheckString(top + %d))", i+1, i+1)
+		} else if o.IsInterface {
+			s = fmt.Sprintf("r%d = Lua_%s_Check(L,top + %d)", i+1, o.Name, i+1)
+		} else if o.IsSlice {
+			if o.ElemType.IsSimpleType() {
+				s = fmt.Sprintf("r%d = Lua_Slice_Check[%s](L,top + %d)", i+1, o.ElemType.Name, i+1)
+			} else if o.ElemType.IsStruct {
+				s = fmt.Sprintf("r%d = Lua_%s_Check_Slice(L,top + %d)", i+1, o.ElemType.Name, i+1)
+			} else if o.IsSlice && o.ElemType.IsInterface && !o.ElemType.IsError {
+				s = fmt.Sprintf("r%d = Lua_%s_Check_Slice(L,top + %d)", i+1, o.ElemType.Name, i+1)
+			} else {
+				return ""
+			}
+		} else if o.IsMap {
+			if o.ElemType.IsStruct {
+				if o.ElemKeyType.IsSimpleType() {
+					s = fmt.Sprintf("r%d = Lua_%s_Check_Map[%s](L,top + %d)", i+1, o.ElemType.Name, o.ElemKeyType.Name, i+1)
+				} else {
+					return ""
+				}
+			} else if o.ElemType.IsInterface && !o.ElemType.IsError {
+				s = fmt.Sprintf("r%d = Lua_%s_Check_Map[%s](L,top + %d)", i+1, o.ElemType.Name, o.ElemKeyType.Name, i+1)
+			} else if o.ElemKeyType.IsSimpleType() && (o.ElemType.IsSimpleType() || o.ElemType.IsAny) {
+				s = fmt.Sprintf("r%d = Lua_Map_Check[%s,%s](L,top + %d)", i+1, o.ElemKeyType.Name, o.ElemType.Name, i+1)
+			}
+		} else {
+			return ""
 		}
 		rdef = append(rdef, s)
 	}
@@ -483,14 +556,15 @@ func (o *Obj) FieldsBindFunc() [][3]any {
 	return m
 }
 
-func (o *Obj) FieldsBindInterface() map[string][2]string {
-	m := map[string][2]string{}
+func (o *Obj) FieldsBindInterface() map[string][3]any {
+	m := map[string][3]any{}
 	for _, f := range o.Fields {
 		t := f.Type
-		a := [2]string{"", ""}
+		a := [3]any{"", "", ""}
 		if t.IsInterface && !t.IsError {
 			a[0] = fmt.Sprintf("Lua_%s_Check(L,2)", t.Name)
 			a[1] = fmt.Sprintf("Lua_%s_ToUserData", t.Name)
+			a[2] = t
 		} else {
 			continue
 		}
@@ -752,7 +826,7 @@ func (b *BindData) LoadObj(obj any) (*Obj, error) {
 		if btp.IsFunc {
 			err := b.LoadFuncParam(btp)
 			if err != nil {
-				fmt.Printf("ignore field func err: %s :%d %s", wholeName, i+1, err.Error())
+				fmt.Printf("ignore field func err: %s:%s :%d %s\n", wholeName, fname, i+1, err.Error())
 				continue
 			}
 		}
@@ -1034,7 +1108,7 @@ func (b *BindData) LoadFuncParam(ptp *BType) error {
 	ptp.IsFuncValid = false
 	tp := ptp.RefType
 	ignoreMethod := false
-	//
+
 	for i := 0; i < tp.NumIn(); i++ {
 		t := tp.In(i)
 		btp, ignore := b.LoadType(t, nil)
@@ -1051,12 +1125,9 @@ func (b *BindData) LoadFuncParam(ptp *BType) error {
 		if btp.IsFunc {
 			return fmt.Errorf("invalid in is func")
 		}
-		// if !(btp.IsNumber || btp.IsString || btp.IsBool) {
-		// 	return fmt.Errorf("invalid in is not number string bool")
+		// if !btp.IsValidTypeForFuncInParam() {
+		// 	return fmt.Errorf("in IsValidTypeForFuncInParam==false")
 		// }
-		if !btp.IsValidTypeForFuncInParam() {
-			return fmt.Errorf("invalid in is not IsValidTypeForFuncInParam")
-		}
 		btp.Index = i + 1
 		ptp.In = append(ptp.In, btp)
 	}
@@ -1079,15 +1150,20 @@ func (b *BindData) LoadFuncParam(ptp *BType) error {
 		if btp.IsFunc {
 			return fmt.Errorf("invalid out is func")
 		}
-		if !(btp.IsNumber || btp.IsString || btp.IsBool) {
-			return fmt.Errorf("invalid out is not number string bool")
-		}
+		// if !btp.IsValidTypeForFuncInParam() {
+		// 	return fmt.Errorf("out IsValidTypeForFuncInParam==false")
+		// }
 		btp.Index = i + 1
 		ptp.Out = append(ptp.Out, btp)
 	}
 	if ignoreMethod {
 		return fmt.Errorf("invalid out ignore")
 	}
+
+	if ptp.FuncDefine("test") == "" {
+		return fmt.Errorf("invalid FuncDefine %s ", ptp.Name)
+	}
+
 	ptp.IsFuncValid = true
 	return nil
 }
