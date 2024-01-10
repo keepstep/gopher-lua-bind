@@ -4,12 +4,12 @@
 
 It is a simple bind-generation for [gopher-lua](https://github.com/yuin/gopher-lua) with limited features.  
 
-## No Support List
+## No Support Bind and 
 ```
 1. Chan
 2. *int *float ... as struct field
 3. *int,*float,*string in function params
-4. struct,*,interface etc. as callback func input params
+4. struct, etc. as callback func input params
 ```
 
 ## Installation
@@ -35,40 +35,37 @@ Generate code
 package main
 
 import (
-        "fmt"
+	"fmt"
 
-        "github.com/keepstep/gopher-lua-bind/gen"
-        //your own files
-        "github.com/keepstep/gopher-lua-bind/tesla"
-        "github.com/keepstep/gopher-lua-bind/tesla/aaaa"
-        "github.com/keepstep/gopher-lua-bind/tesla/modele"
-        "github.com/keepstep/gopher-lua-bind/tesla/modelx"
-        "github.com/keepstep/gopher-lua-bind/tesla/modely"
+	"github.com/keepstep/gopher-lua-bind/gen"
+
+	//your own files
+	"github.com/keepstep/gopher-lua-bind/car"
+	"github.com/keepstep/gopher-lua-bind/car/byd"
+	"github.com/keepstep/gopher-lua-bind/car/tesla"
 )
 
 func main() {
-        //objs with global functions
-        objs := []gen.GenItem{
-                {Obj: &aaaa.AAA{}, Funcs: nil},
-                {Obj: &aaaa.BBB{}, Funcs: nil},
-                {Obj: &aaaa.CCC{}, Funcs: nil},
-                {Obj: &modely.ModelY{}, Funcs: nil},
-                {Obj: &modelx.ModelX{}, Funcs: nil},
-                {Obj: &modele.ModelE{}, Funcs: nil},
-                {Obj: &tesla.Tesla{}, Funcs: [][2]any{
-                        {"TeslaCompare", tesla.TeslaCompare},
-                        {"TeslaTest", tesla.TeslaTest},
-                        {"TeslaGetAAA", tesla.TeslaGetAAA},
-                }},
-        }
-        //【param or field type】 that defined in other packages will not be ignore
-        allowPkgPath := []string{}
-        //【outDir/bind】 will be clean first then created, generated files will be placed in it
-        outDir := "./"
-        err := gen.Gen(objs,allowPkgPath , outDir)
-        if err != nil {
-                fmt.Printf("Error: %v\n", err)
-        }
+	objs := []gen.GenItem{
+		//objs with global functions
+		{Obj: &car.Driver{}, Funcs: [][2]any{
+			{"GetByCb", car.GetByCb},
+			{"GetBrand", car.GetBrand},
+			{"GetCars", car.GetCars},
+		}},
+		{Obj: &byd.Han{}, Funcs: nil},
+		{Obj: &tesla.Modely{}, Funcs: nil},
+	}
+	//[param or field type] that defined in other packages will not be ignore
+	allowPkgPath := []string{}
+	//[outDir/bind] will be clean first then created, generated files will be placed in it
+	outDir := "./"
+	//[genLuaSnippet] will gen some lua file with incorrect syntax at outDir/lua
+	genLuaSnippet := true
+	err := gen.Gen(objs, allowPkgPath, outDir, genLuaSnippet)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
 }
 
 

@@ -3,40 +3,32 @@ package main
 import (
 	"fmt"
 
+	"github.com/keepstep/gopher-lua-bind/gen"
+
+	//your own files
 	"github.com/keepstep/gopher-lua-bind/car"
 	"github.com/keepstep/gopher-lua-bind/car/byd"
 	"github.com/keepstep/gopher-lua-bind/car/tesla"
-	"github.com/keepstep/gopher-lua-bind/gen"
 )
 
 func main() {
-	// objs := []gen.GenItem{
-	// 	{Obj: &aaaa.AAA{}, Funcs: [][2]any{
-	// 		{"AAACmp", aaaa.AAACmp},
-	// 	}},
-	// 	{Obj: &aaaa.BBB{}, Funcs: nil},
-	// 	{Obj: &aaaa.CCC{}, Funcs: nil},
-	// 	{Obj: &modely.ModelY{}, Funcs: nil},
-	// 	{Obj: &modelx.ModelX{}, Funcs: nil},
-	// 	{Obj: &modele.ModelE{}, Funcs: nil},
-	// 	{Obj: &tesla.Tesla{}, Funcs: [][2]any{
-	// 		{"TeslaCompare", tesla.TeslaCompare},
-	// 		{"TeslaTest", tesla.TeslaTest},
-	// 		{"TeslaGetAAA", tesla.TeslaGetAAA},
-	// 		{"TeslaCallBack", tesla.TeslaCallBack},
-	// 		{"TeslaCallInterface", tesla.TeslaCallInterface},
-	// 		{"TeslaGetCmp", tesla.TeslaGetCmp},
-	// 	}},
-	// }
-	objs2 := []gen.GenItem{
+	objs := []gen.GenItem{
+		//objs with global functions
 		{Obj: &car.Driver{}, Funcs: [][2]any{
+			{"GetByCb", car.GetByCb},
 			{"GetBrand", car.GetBrand},
 			{"GetCars", car.GetCars},
 		}},
 		{Obj: &byd.Han{}, Funcs: nil},
 		{Obj: &tesla.Modely{}, Funcs: nil},
 	}
-	err := gen.Gen(objs2, []string{}, "./", true)
+	//[param or field type] that defined in other packages will not be ignore
+	allowPkgPath := []string{}
+	//[outDir/bind] will be clean first then created, generated files will be placed in it
+	outDir := "./"
+	//[genLuaSnippet] will gen some lua file with incorrect syntax at outDir/lua
+	genLuaSnippet := true
+	err := gen.Gen(objs, allowPkgPath, outDir, genLuaSnippet)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}

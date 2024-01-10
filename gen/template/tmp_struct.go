@@ -120,7 +120,7 @@ func Lua_{{ .Name}}_Map_To_Table[T TM](L *lua.LState, m map[T]*{{ .PkgName }}.{{
 
 // funcs
 {{ range $idx,$fun := .Funcs }} 
-//{{ $lower_name }}:{{- $fun.Name -}}({{- $fun.InType -}}) returns ( {{- $fun.OutType -}} )
+//{{ $lower_name }}.{{- $fun.Name -}}({{- $fun.InType -}}) returns ( {{- $fun.OutType -}} )
 func Lua_{{ $Name }}_{{- $fun.Name -}}(L *lua.LState) int {
 	{{ range $i,$t := .In }} 
 		{{ if $t.IsMap }}
