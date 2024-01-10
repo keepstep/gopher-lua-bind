@@ -4,12 +4,12 @@
 
 It is a simple bind-generation for [gopher-lua](https://github.com/yuin/gopher-lua) with limited features.  
 
-## No Support List
+## No Support Bind and 
 ```
 1. Chan
 2. *int *float ... as struct field
 3. *int,*float,*string in function params
-4. struct,*,interface etc. as callback func input params
+4. struct, etc. as callback func input params
 ```
 
 ## Installation

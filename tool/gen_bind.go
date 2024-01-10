@@ -30,6 +30,7 @@ func main() {
 	// }
 	objs2 := []gen.GenItem{
 		{Obj: &car.Driver{}, Funcs: [][2]any{
+			{"GetByCb", car.GetByCb},
 			{"GetBrand", car.GetBrand},
 			{"GetCars", car.GetCars},
 		}},
